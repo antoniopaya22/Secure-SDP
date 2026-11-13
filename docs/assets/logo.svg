@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SDP">
-  <rect width="64" height="64" rx="16" fill="#0b0f14"/>
-  <rect x="17" y="12" width="9" height="17" rx="3" fill="#e9eef5"/>
-  <rect x="17" y="35" width="9" height="17" rx="3" fill="#e9eef5"/>
-  <rect x="38" y="12" width="9" height="40" rx="3" fill="#39d5c3" opacity=".35"/>
-  <circle cx="21.5" cy="32" r="5" fill="#ffb020"/>
-  <circle cx="21.5" cy="32" r="9" fill="none" stroke="#ffb020" stroke-opacity=".45" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SecureSDP">
+  <rect width="64" height="64" rx="16" fill="#0b1117"/>
+  <path d="M8 44h48" stroke="#e9eef3" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M19 44V18M45 44V18" stroke="#e9eef3" stroke-width="4" stroke-linecap="round"/>
+  <path d="M8 30C14 30 17 20 19 18c4 10 22 10 26 0 2 2 5 12 11 12" fill="none" stroke="#ff5a1f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 26v18M32 28v16M39 26v18" stroke="#ff5a1f" stroke-width="1.8" stroke-linecap="round" opacity=".75"/>
 </svg>
