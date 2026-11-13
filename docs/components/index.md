@@ -19,6 +19,7 @@ internal/
   fwknop/     fwknopd/access.conf rendering, daemon supervision, SPA client
   firewall/   iptables default-drop and revocation
   hardening/  Aspida rendering, Egida and dry-run hardeners, Lynis audit
+  cli/, netutil/  small helpers shared by the commands
 lab/          Docker lab configuration and PKI bootstrap
 scripts/      demo.sh (end-to-end checks), bench.sh (response times)
 ```
