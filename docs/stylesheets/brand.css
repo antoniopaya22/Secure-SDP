@@ -1,0 +1,114 @@
+/* SecureSDP brand: "bridging perimeters".
+   Steel blue-black like a bridge at night, international orange (the colour
+   of suspension bridges) as the accent, a cool teal for authorized paths.
+   The hero background is a field of bridge cables. Used by the landing page
+   (landing.css) and by the documentation pages (extra.css). */
+
+.lp, .lp-nav, .lp-foot {
+  /* landing surfaces */
+  --lp-dark: #0b1117;
+  --lp-dark-2: #111a23;
+  --lp-light: #eef1f3;
+  --lp-light-2: #e1e6ea;
+  --lp-ink: #0e1a24;
+
+  /* international orange */
+  --lp-accent: #ff5a1f;
+  --lp-accent-hover: #ff7440;
+  --lp-accent-soft: #ff9a72;
+  --lp-accent-ink: #b9400f;
+  --lp-on-accent: #0b1117;
+  --lp-mark: #ff5a1f;
+  --lp-ok: #38d6c4;
+  --lp-ok-soft: rgba(56, 214, 196, .12);
+  --lp-ok-ink: #0d7a6f;
+  --lp-red: #ff4d6a;
+  --lp-amber: #ffb020;
+
+  /* text and code on dark */
+  --lp-text-d: #e9eef3;
+  --lp-text-d2: #c8d2dc;
+  --lp-muted-d: #9eacb9;
+  --lp-dim-d: #758594;
+  --lp-node: #13202b;
+  --lp-code-bg: #0d151d;
+  --lp-code-bar: #142130;
+  --lp-code-fg: #dbe4ec;
+  --lp-nav-bg: rgba(11, 17, 23, .86);
+
+  /* hero: suspension cables over a warm horizon */
+  --lp-glow-1: rgba(255, 90, 31, .16);
+  --lp-glow-2: rgba(56, 214, 196, .07);
+  --lp-hero-pattern:
+    repeating-linear-gradient(118deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 38px),
+    repeating-linear-gradient(62deg, rgba(255, 255, 255, .04) 0 1px, transparent 1px 38px);
+  --lp-hero-pattern-size: auto;
+
+  /* call to action: orange band, steel type */
+  --lp-cta-bg: #ff5a1f;
+  --lp-cta-fg: #0b1117;
+  --lp-cta-mark: #0b1117;
+  --lp-cta-line: rgba(11, 17, 23, .35);
+  --lp-cta-install-bg: rgba(11, 17, 23, .1);
+  --lp-cta-install-btn: #0b1117;
+  --lp-cta-install-btn-fg: #ff5a1f;
+  --lp-cta-btn-bg: #0b1117;
+  --lp-cta-btn-fg: #ffffff;
+  --lp-cta-watermark: rgba(11, 17, 23, .3);
+}
+
+/* product header of the docs pages */
+:root {
+  --brand-header-bg: #0b1117;
+  --brand-header-accent: #ff5a1f;
+  --brand-header-on-accent: #0b1117;
+}
+
+/* documentation pages */
+[data-md-color-scheme="default"] {
+  --md-mermaid-sequence-actor-line-color: #c3ced8;
+  --md-mermaid-sequence-actor-border-color: #b9400f;
+  --md-mermaid-sequence-message-line-color: #b9400f;
+  --md-mermaid-sequence-number-bg-color: #b9400f;
+  --md-mermaid-node-bg-color: #fff1ea;
+  --md-mermaid-node-fg-color: #0e1a24;
+  --md-mermaid-edge-color: #b9400f;
+  --md-mermaid-label-bg-color: #eef1f3;
+  --md-mermaid-label-fg-color: #0e1a24;
+  --lp-accent: #b9400f;
+  --lp-accent-hover: #963208;
+  --lp-accent-soft: #fff1ea;
+  --lp-on-accent: #ffffff;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-mermaid-sequence-actor-line-color: #2b3c4c;
+  --md-mermaid-sequence-actor-border-color: #ff9a72;
+  --md-mermaid-sequence-message-line-color: #ff9a72;
+  --md-mermaid-sequence-number-bg-color: #ff9a72;
+  --md-mermaid-node-bg-color: #2a1a12;
+  --md-mermaid-node-fg-color: #e9eef3;
+  --md-mermaid-edge-color: #ff9a72;
+  --md-mermaid-label-bg-color: #111a23;
+  --md-mermaid-label-fg-color: #e9eef3;
+  --lp-bg: #0b1117;
+  --lp-bg-soft: #0f1720;
+  --lp-surface: #111a23;
+  --lp-line: #1d2a36;
+  --lp-line-strong: #2b3c4c;
+  --lp-accent: #ff9a72;
+  --lp-accent-hover: #ffb595;
+  --lp-accent-soft: #2a1a12;
+  --lp-on-accent: #0b1117;
+  --md-default-bg-color: #0b1117;
+  --md-code-bg-color: #0f1720;
+}
+
+/* landing signature: the eyebrow rule is a bridge deck with two pylons */
+.lp .lp-eyebrow::before {
+  width: 26px; height: 9px; background: none;
+  border-bottom: 2px solid currentColor; border-left: 2px solid currentColor; border-right: 2px solid currentColor;
+}
+.lp .lp-dark .lp-eyebrow { color: var(--lp-accent-soft); }
+/* headlines a touch tighter and heavier than SDP Lab */
+.lp .lp-display { letter-spacing: -0.05em; }
