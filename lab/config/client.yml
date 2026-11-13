@@ -1,0 +1,8 @@
+# Initiating host of domain-b: talks only to its own (bridged) controller.
+controller: ctrl-bridge:7443
+controller_identity: sdp://domain-b/controller/ctrl-bridge
+fwknop: fwknop
+tls:
+  cert: /etc/sdp/tls/cert.pem
+  key: /etc/sdp/tls/key.pem
+  ca: /etc/sdp/tls/ca.pem

@@ -1,0 +1,12 @@
+# Bridged SDP controller of domain-b: authenticates the members of its own
+# domain and relays their requests to the root controller.
+role: bridge
+api_listen: ":7443"
+peer_listen: ":7444"
+upstream: ctrl-root:7444
+upstream_identity: sdp://domain-a/controller/ctrl-root
+ready_file: /tmp/sdp-ready
+tls:
+  cert: /etc/sdp/tls/cert.pem
+  key: /etc/sdp/tls/key.pem
+  ca: /etc/sdp/tls/ca.pem

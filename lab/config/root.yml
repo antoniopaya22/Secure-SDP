@@ -1,0 +1,10 @@
+# Root SDP controller of domain-a: central authority (Policy Decision Point).
+role: root
+api_listen: ":7443"     # HTTPS + mTLS for initiating hosts and admins of domain-a
+peer_listen: ":7444"    # control channels from bridged controllers and accepting hosts
+policy: /etc/sdp/policy.yml
+ready_file: /tmp/sdp-ready
+tls:
+  cert: /etc/sdp/tls/cert.pem
+  key: /etc/sdp/tls/key.pem
+  ca: /etc/sdp/tls/ca.pem

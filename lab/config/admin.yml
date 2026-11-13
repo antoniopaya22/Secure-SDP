@@ -1,0 +1,7 @@
+# Operator identity used with `sdp-controller admin` inside the root controller container.
+controller: 127.0.0.1:7443
+controller_identity: sdp://domain-a/controller/ctrl-root
+tls:
+  cert: /etc/sdp/admin/cert.pem
+  key: /etc/sdp/admin/key.pem
+  ca: /etc/sdp/admin/ca.pem

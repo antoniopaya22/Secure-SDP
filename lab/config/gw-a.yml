@@ -1,0 +1,23 @@
+# Accepting host gw-a (domain-a), attached to the root controller.
+controller: ctrl-root:7444
+controller_identity: sdp://domain-a/controller/ctrl-root
+public_ip: 10.232.0.20          # interface fwknopd sniffs for SPA packets
+state_dir: /var/lib/sdp-services
+ready_file: /run/sdp-ready
+tls:
+  cert: /etc/sdp/tls/cert.pem
+  key: /etc/sdp/tls/key.pem
+  ca: /etc/sdp/tls/ca.pem
+fwknop:
+  enabled: true
+  spa_port: 62201
+firewall:
+  manage: true                  # default-drop iptables
+tunnel:
+  listen: ":8443"               # must match tunnel_port in the policy
+hardening:
+  # Egida needs a full Debian host with Ansible and root (see the docs);
+  # the container lab renders the Aspida program without applying it.
+  driver: dry-run
+audit:
+  lynis: lynis
