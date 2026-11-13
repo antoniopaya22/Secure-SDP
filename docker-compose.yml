@@ -1,0 +1,177 @@
+# SecureSDP lab: Bridge model with two SDP domains.
+#
+#   domain-a  ctrl-root (root controller) + gw-a (accepting host) -> web (nginx)
+#   domain-b  ctrl-bridge (bridged controller) + ih-alice, ih-bob (initiating hosts)
+#
+#   sdp-public  : controllers, gateway public side, initiating hosts
+#   sdp-private : gateway private side + protected nginx (no other route in)
+#
+# Usage:  docker compose up -d --build --wait && ./scripts/demo.sh
+# The PKI is generated on first start into the `pki` volume (nothing committed).
+
+name: securesdp
+
+x-defaults: &defaults
+  restart: unless-stopped
+  init: true
+
+x-build: &build
+  context: .
+  dockerfile: Dockerfile
+
+services:
+
+  # ============== PKI (one-shot) ==============
+  pki:
+    build: { <<: *build, target: controller }
+    image: securesdp/controller:lab
+    user: "0"
+    entrypoint: ["/usr/local/bin/pki-bootstrap.sh"]
+    command: []
+    volumes:
+      - pki:/pki
+    network_mode: none
+
+  # ============== ROOT CONTROLLER (domain-a) ==============
+  ctrl-root:
+    <<: *defaults
+    build: { <<: *build, target: controller }
+    image: securesdp/controller:lab
+    command: ["serve", "--config", "/etc/sdp/controller.yml"]
+    volumes:
+      - ./lab/config/root.yml:/etc/sdp/controller.yml:ro
+      - ./lab/config/policy.yml:/etc/sdp/policy.yml:ro
+      - ./lab/config/admin.yml:/etc/sdp/admin.yml:ro
+      - { type: volume, source: pki, target: /etc/sdp/tls, read_only: true, volume: { subpath: members/ctrl-root } }
+      - { type: volume, source: pki, target: /etc/sdp/admin, read_only: true, volume: { subpath: members/admin } }
+    networks:
+      sdp-public:
+        ipv4_address: 10.232.0.10
+    depends_on:
+      pki:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/sdp-ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  # ============== BRIDGED CONTROLLER (domain-b) ==============
+  ctrl-bridge:
+    <<: *defaults
+    build: { <<: *build, target: controller }
+    image: securesdp/controller:lab
+    command: ["serve", "--config", "/etc/sdp/controller.yml"]
+    volumes:
+      - ./lab/config/bridge.yml:/etc/sdp/controller.yml:ro
+      - { type: volume, source: pki, target: /etc/sdp/tls, read_only: true, volume: { subpath: members/ctrl-bridge } }
+    networks:
+      sdp-public:
+        ipv4_address: 10.232.0.11
+    depends_on:
+      ctrl-root:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/sdp-ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  # ============== ACCEPTING HOST (domain-a) ==============
+  gw-a:
+    <<: *defaults
+    build: { <<: *build, target: gateway }
+    image: securesdp/gateway:lab
+    cap_add:
+      - NET_ADMIN   # iptables
+      - NET_RAW     # fwknopd sniffs SPA packets with libpcap
+    sysctls:
+      net.ipv4.ip_forward: "1"   # forward-mode services (fwknop FORCE_NAT)
+    volumes:
+      - ./lab/config/gw-a.yml:/etc/sdp/services.yml:ro
+      - { type: volume, source: pki, target: /etc/sdp/tls, read_only: true, volume: { subpath: members/gw-a } }
+    networks:
+      sdp-public:
+        ipv4_address: 10.232.0.20
+      sdp-private:
+        ipv4_address: 10.232.1.20
+    depends_on:
+      ctrl-root:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-f", "/run/sdp-ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  # ============== PROTECTED SERVICE ==============
+  web:
+    <<: *defaults
+    image: nginx:1.27-alpine
+    # Payloads with the sizes used in the paper's scalability test (bench.sh).
+    command:
+      - sh
+      - -c
+      - |
+        for s in 47300 71000 73000 94600; do
+          head -c "$$s" /dev/urandom > "/usr/share/nginx/html/payload-$$s.bin"
+        done
+        exec nginx -g 'daemon off;'
+    networks:
+      sdp-private:
+        ipv4_address: 10.232.1.30
+
+  # ============== INITIATING HOSTS (domain-b) ==============
+  ih-alice:
+    <<: *defaults
+    build: { <<: *build, target: client }
+    image: securesdp/client:lab
+    volumes:
+      - ./lab/config/client.yml:/etc/sdp/client.yml:ro
+      - { type: volume, source: pki, target: /etc/sdp/tls, read_only: true, volume: { subpath: members/alice } }
+    networks:
+      sdp-public:
+        ipv4_address: 10.232.0.40
+    depends_on:
+      ctrl-bridge:
+        condition: service_healthy
+
+  ih-bob:
+    <<: *defaults
+    build: { <<: *build, target: client }
+    image: securesdp/client:lab
+    volumes:
+      - ./lab/config/client.yml:/etc/sdp/client.yml:ro
+      - { type: volume, source: pki, target: /etc/sdp/tls, read_only: true, volume: { subpath: members/bob } }
+    networks:
+      sdp-public:
+        ipv4_address: 10.232.0.41
+    depends_on:
+      ctrl-bridge:
+        condition: service_healthy
+
+  # ============== BENCHMARK BASELINE (docker compose --profile bench) ==============
+  # A host on the private network that reaches nginx directly, without SDP.
+  probe:
+    <<: *defaults
+    build: { <<: *build, target: client }
+    image: securesdp/client:lab
+    profiles: ["bench"]
+    networks:
+      sdp-private:
+        ipv4_address: 10.232.1.50
+
+networks:
+  sdp-public:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.232.0.0/24
+  sdp-private:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.232.1.0/24
+
+volumes:
+  pki:

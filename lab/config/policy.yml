@@ -1,0 +1,66 @@
+# SecureSDP lab policy, held by the root controller (domain-a).
+# Access is denied unless a registered, enabled client lists the service.
+
+defaults:
+  access_timeout: 30s     # FW_ACCESS_TIMEOUT after a valid SPA packet
+  grant_ttl: 10m          # validity of the per-grant SPA credentials
+  hardening: [sdp-accepting-host]
+  egida_host: localhost
+
+domains:
+  - name: domain-a
+    description: Root domain (root controller, accepting host gw-a)
+  - name: domain-b
+    description: Bridged domain (bridged controller, initiating hosts)
+
+gateways:
+  - id: gw-a
+    domain: domain-a
+    address: 10.232.0.20  # public address of the accepting host
+    spa_port: 62201
+    tunnel_port: 8443
+
+services:
+  - name: web
+    description: nginx behind gw-a, reached through an mTLS tunnel
+    gateway: gw-a
+    target: 10.232.1.30:80
+    mode: tunnel
+    hardening: [http-service]
+  - name: web-nat
+    description: the same nginx, reached through fwknop DNAT (FORCE_NAT)
+    gateway: gw-a
+    target: 10.232.1.30:80
+    mode: forward
+    port: 8080
+    access_timeout: 30s
+
+clients:
+  - id: alice
+    domain: domain-b
+    services: [web, web-nat]
+  - id: bob               # valid certificate, registered, but no entitlements
+    domain: domain-b
+    services: []
+
+# Hardening profiles (Egida / Aspida). Selections refer to the CIS points of
+# the Egida CIS role (Egida-Kassandra/egida-role-cis). They are examples of
+# how non-interfering controls are chosen per service; review them before
+# applying them to a real host.
+hardening:
+  sdp-accepting-host:
+    description: >-
+      Baseline for every accepting host. Section 3.5 (firewall configuration
+      with ufw) is not selected because the accepting host firewall is owned
+      by SecureSDP (iptables + fwknop), and point 3.1.2 (disable IP
+      forwarding) is excluded because forward-mode services are DNATed
+      through the accepting host.
+    sections: ["1.1", "1.6", "1.8", "3.1", "3.2", "4.2", "5.2", "5.4", "6.1"]
+    exclusions: ["3.1.2"]
+  http-service:
+    description: >-
+      Controls for hosts that serve HTTP: keep the CIS "remove special
+      purpose services" section but do not disable the HTTP server (2.2.10)
+      or HTTP proxy (2.2.13) the protected service needs.
+    sections: ["2.2"]
+    exclusions: ["2.2.10", "2.2.13"]
