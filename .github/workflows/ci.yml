@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go (fmt, vet, staticcheck, test)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25.x"
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "Not gofmt-ed:"; echo "$unformatted"; exit 1; fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@2025.1.1 ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
+
+      - name: Build binaries
+        run: go build -trimpath -o bin/ ./cmd/...
+
+  lint:
+    name: Shell and Compose
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: ShellCheck
+        run: |
+          shellcheck scripts/demo.sh scripts/bench.sh
+          shellcheck -s sh lab/pki-bootstrap.sh
+
+      - name: Compose file is valid
+        run: docker compose config --quiet
+
+  e2e:
+    name: End-to-end lab
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and start the lab
+        run: docker compose up -d --build --wait
+
+      - name: Demo
+        run: ./scripts/demo.sh
+
+      - name: Demo again (repeatability) with a Lynis audit of the accepting host
+        run: RUN_AUDIT=1 ./scripts/demo.sh
+
+      - name: Demo on a recreated lab (fresh PKI)
+        run: |
+          docker compose down -v
+          docker compose up -d --wait
+          ./scripts/demo.sh
+
+      - name: Benchmark (informative)
+        run: ./scripts/bench.sh 20
+
+      - name: Logs
+        if: failure()
+        run: docker compose --profile bench logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose --profile bench down -v
