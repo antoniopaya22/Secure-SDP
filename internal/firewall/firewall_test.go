@@ -65,3 +65,43 @@ func TestApplyIdempotentAndTolerant(t *testing.T) {
 		t.Fatal("failure of a required rule ignored")
 	}
 }
+
+type fakeLister struct {
+	fake
+	chains map[string]string
+}
+
+func (f *fakeLister) Output(args ...string) (string, error) {
+	out, ok := f.chains[args[1]+" "+args[3]]
+	if !ok {
+		return "", errors.New("no chain")
+	}
+	return out, nil
+}
+
+func TestCloseAccess(t *testing.T) {
+	f := &fakeLister{chains: map[string]string{
+		"nat FWKNOP_PREROUTING": "-N FWKNOP_PREROUTING\n" +
+			"-A FWKNOP_PREROUTING -s 10.0.0.40/32 -p tcp -m tcp --dport 8080 -m comment --comment _exp_1 -j DNAT --to-destination 10.0.1.30:80\n" +
+			"-A FWKNOP_PREROUTING -s 10.0.0.41/32 -p tcp -m tcp --dport 8080 -m comment --comment _exp_1 -j DNAT --to-destination 10.0.1.30:80\n",
+		"filter FWKNOP_FORWARD": "-N FWKNOP_FORWARD\n" +
+			"-A FWKNOP_FORWARD -s 10.0.0.40/32 -p tcp -m tcp --dport 80 -m comment --comment _exp_1 -j ACCEPT\n",
+		"filter FWKNOP_INPUT": "-N FWKNOP_INPUT\n" +
+			"-A FWKNOP_INPUT -s 10.0.0.40/32 -p tcp -m tcp --dport 8443 -m comment --comment _exp_1 -j ACCEPT\n",
+	}}
+	n, err := CloseAccess(f, Access{Source: "10.0.0.40", Ports: []int{8080, 80}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("removed %d rules, want 2 (DNAT + FORWARD of 10.0.0.40): %v", n, f.ran)
+	}
+	for _, l := range f.ran {
+		if strings.Contains(l, "10.0.0.41") || strings.Contains(l, "8443") {
+			t.Fatalf("removed an unrelated rule: %s", l)
+		}
+		if !strings.Contains(l, "-D FWKNOP_") {
+			t.Fatalf("unexpected command %s", l)
+		}
+	}
+}

@@ -25,6 +25,8 @@ type Daemon struct {
 	ConfigFile string
 	AccessFile string
 	Logger     *slog.Logger
+	// OnLine, if set, receives every line fwknopd logs.
+	OnLine func(string)
 	// ReadyTimeout bounds how long Start and Reload wait for fwknopd.
 	ReadyTimeout time.Duration
 
@@ -75,6 +77,9 @@ func (d *Daemon) startLocked(ctx context.Context) error {
 		for sc.Scan() {
 			line := sc.Text()
 			d.log().Info("fwknopd: " + line)
+			if d.OnLine != nil {
+				d.OnLine(line)
+			}
 			if strings.Contains(line, readyMarker) {
 				select {
 				case ready <- struct{}{}:

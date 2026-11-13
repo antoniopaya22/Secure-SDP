@@ -17,7 +17,9 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"sync"
@@ -55,8 +57,10 @@ type Config struct {
 		RunDir  string `yaml:"run_dir"`
 	} `yaml:"fwknop"`
 	Firewall struct {
-		Manage bool   `yaml:"manage"`
-		Binary string `yaml:"binary"`
+		Manage  bool   `yaml:"manage"`
+		Binary  string `yaml:"binary"`  // iptables
+		Binary6 string `yaml:"binary6"` // ip6tables
+
 	} `yaml:"firewall"`
 	Tunnel struct {
 		Listen string `yaml:"listen"`
@@ -109,8 +113,11 @@ type Agent struct {
 	me  *pki.Member
 	log *slog.Logger
 
-	mu     sync.Mutex
-	grants map[string]api.GatewayGrant
+	mu      sync.Mutex
+	grants  map[string]api.GatewayGrant
+	order   []string                         // grant ID of each access.conf stanza ("" = placeholder)
+	sources map[string]map[string]bool       // grant ID -> client addresses seen in valid SPA packets
+	tunnels map[string]map[net.Conn]struct{} // grant ID -> open tunnel connections
 
 	applyMu  sync.Mutex
 	daemon   *fwknop.Daemon
@@ -134,6 +141,8 @@ func New(cfg *Config, me *pki.Member, log *slog.Logger) (*Agent, error) {
 	a := &Agent{
 		cfg: cfg, me: me, log: log,
 		grants:   map[string]api.GatewayGrant{},
+		sources:  map[string]map[string]bool{},
+		tunnels:  map[string]map[net.Conn]struct{}{},
 		hardener: h,
 		auditor:  &hardening.Lynis{Binary: cfg.Audit.Lynis},
 	}
@@ -202,6 +211,13 @@ func (a *Agent) Start(ctx context.Context) error {
 		if err := firewall.Apply(firewall.Exec{Binary: a.cfg.Firewall.Binary}, firewall.Plan(private)); err != nil {
 			return fmt.Errorf("gateway: firewall: %w", err)
 		}
+		v6 := a.cfg.Firewall.Binary6
+		if v6 == "" {
+			v6 = "ip6tables"
+		}
+		if err := firewall.Apply(firewall.Exec{Binary: v6}, firewall.Plan6()); err != nil {
+			a.log.Warn("IPv6 firewall not configured", "err", err)
+		}
 		a.log.Info("firewall in default-drop state", "public", pub, "private", private)
 	}
 	if a.cfg.Fwknop.Enabled {
@@ -230,7 +246,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		if err := a.writeAccess(); err != nil {
 			return err
 		}
-		a.daemon = &fwknop.Daemon{Binary: a.cfg.Fwknop.Binary, ConfigFile: conf, AccessFile: access, Logger: a.log}
+		a.daemon = &fwknop.Daemon{Binary: a.cfg.Fwknop.Binary, ConfigFile: conf, AccessFile: access, Logger: a.log, OnLine: a.onFwknopLine}
 		if err := a.daemon.Start(ctx); err != nil {
 			return err
 		}
@@ -366,13 +382,81 @@ func (a *Agent) stanzas(now time.Time) []fwknop.Stanza {
 	}
 	sort.Strings(ids)
 	out := []fwknop.Stanza{a.decoy}
+	order := []string{""}
 	for _, id := range ids {
 		if s, err := toStanza(a.grants[id]); err == nil {
 			out = append(out, s)
+			order = append(order, id)
 		}
 	}
+	a.order = order
 	a.mu.Unlock()
 	return out
+}
+
+// spaLine matches the fwknopd log line of an accepted SPA packet.
+var spaLine = regexp.MustCompile(`\(stanza #(\d+)\) SPA Packet from IP: ([0-9.]+) received`)
+
+// onFwknopLine records which client address knocked with which grant, so a
+// revocation can close the firewall rules fwknopd opened for it.
+func (a *Agent) onFwknopLine(line string) {
+	m := spaLine.FindStringSubmatch(line)
+	if m == nil {
+		return
+	}
+	n, _ := strconv.Atoi(m[1])
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if n < 1 || n > len(a.order) || a.order[n-1] == "" {
+		return
+	}
+	id := a.order[n-1]
+	if a.sources[id] == nil {
+		a.sources[id] = map[string]bool{}
+	}
+	a.sources[id][m[2]] = true
+}
+
+// enforceRevocation cuts what revoked grants had opened: live tunnel
+// connections, firewall rules still inside their FW_ACCESS_TIMEOUT and
+// tracked connections of forward-mode services.
+func (a *Agent) enforceRevocation(revoked []api.GatewayGrant) {
+	for _, g := range revoked {
+		a.mu.Lock()
+		conns := a.tunnels[g.ID]
+		delete(a.tunnels, g.ID)
+		srcs := a.sources[g.ID]
+		delete(a.sources, g.ID)
+		a.mu.Unlock()
+		for c := range conns {
+			_ = c.Close()
+		}
+		if !a.cfg.Firewall.Manage {
+			continue
+		}
+		ports := []int{g.Port}
+		if g.Mode == api.ModeForward {
+			if _, p, err := net.SplitHostPort(g.Target); err == nil {
+				if n, err := strconv.Atoi(p); err == nil {
+					ports = append(ports, n)
+				}
+			}
+		}
+		for src := range srcs {
+			n, err := firewall.CloseAccess(firewall.Exec{Binary: a.cfg.Firewall.Binary}, firewall.Access{Source: src, Ports: ports})
+			if err != nil {
+				a.log.Warn("closing firewall access", "grant", g.ID, "source", src, "err", err)
+			}
+			if g.Mode == api.ModeForward {
+				// Drop established DNAT flows (conntrack exits 1 when none match).
+				_ = exec.Command("conntrack", "-D", "-s", src, "-p", "tcp", "--orig-port-dst", strconv.Itoa(g.Port)).Run()
+			}
+			a.log.Info("access closed", "grant", g.ID, "client", g.Client, "source", src, "rules_removed", n, "tunnels_closed", len(conns))
+		}
+		if len(srcs) == 0 && len(conns) > 0 {
+			a.log.Info("access closed", "grant", g.ID, "client", g.Client, "tunnels_closed", len(conns))
+		}
+	}
 }
 
 func (a *Agent) writeAccess() error {
@@ -410,6 +494,7 @@ func (a *Agent) expireLoop(ctx context.Context) {
 			for id, g := range a.grants {
 				if !now.Before(g.ExpiresAt) {
 					delete(a.grants, id)
+					delete(a.sources, id)
 					expired = append(expired, id)
 				}
 			}
@@ -449,6 +534,12 @@ func (a *Agent) handle(ctx context.Context, method string, params json.RawMessag
 			return nil, err
 		}
 		a.mu.Lock()
+		for _, old := range g.Replaces {
+			if prev, ok := a.grants[old]; ok && prev.Client == g.Client {
+				delete(a.grants, old)
+			}
+		}
+		g.Replaces = nil
 		a.grants[g.ID] = g
 		a.mu.Unlock()
 		if err := a.apply(ctx); err != nil {
@@ -463,19 +554,22 @@ func (a *Agent) handle(ctx context.Context, method string, params json.RawMessag
 			return nil, err
 		}
 		a.mu.Lock()
-		n := 0
+		var revoked []api.GatewayGrant
 		for _, id := range req.IDs {
-			if _, ok := a.grants[id]; ok {
+			if g, ok := a.grants[id]; ok {
 				delete(a.grants, id)
-				n++
+				revoked = append(revoked, g)
 			}
 		}
 		a.mu.Unlock()
-		if n > 0 {
+		if len(revoked) > 0 {
 			if err := a.apply(ctx); err != nil {
 				return nil, rpc.Errorf(rpc.CodeInternal, "apply: %v", err)
 			}
-			a.log.Info("grants revoked", "ids", req.IDs)
+			if req.Enforce {
+				a.enforceRevocation(revoked)
+			}
+			a.log.Info("grants revoked", "ids", req.IDs, "enforced", req.Enforce)
 		}
 		return struct{}{}, nil
 	case api.MethodSync:
@@ -491,11 +585,18 @@ func (a *Agent) handle(ctx context.Context, method string, params json.RawMessag
 			}
 		}
 		a.mu.Lock()
+		var revoked []api.GatewayGrant
+		for id, g := range a.grants {
+			if _, keep := fresh[id]; !keep && now.Before(g.ExpiresAt) {
+				revoked = append(revoked, g)
+			}
+		}
 		a.grants = fresh
 		a.mu.Unlock()
 		if err := a.apply(ctx); err != nil {
 			return nil, rpc.Errorf(rpc.CodeInternal, "apply: %v", err)
 		}
+		a.enforceRevocation(revoked)
 		res := api.SyncResult{Grants: len(fresh)}
 		if s.Hardening != nil {
 			a.log.Info("applying hardening profile", "profile", s.Hardening.Name, "hash", s.Hardening.Hash,

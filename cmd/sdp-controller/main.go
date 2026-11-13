@@ -246,8 +246,10 @@ func adminCmd(args []string) error {
 	asJSON := fs.Bool("json", false, "print raw JSON")
 	grant := fs.String("grant", "", "grant ID (revoke)")
 	clientName := fs.String("client", "", "client domain/id (revoke)")
-	_ = fs.Parse(args)
-	rest := fs.Args()
+	rest, err := cli.ParseInterspersed(fs, args)
+	if err != nil {
+		return err
+	}
 	if len(rest) == 0 {
 		return errors.New("admin: missing command")
 	}

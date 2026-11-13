@@ -125,11 +125,14 @@ func access(c *client.Client, args []string, asJSON bool) error {
 	fs := flag.NewFlagSet("access", flag.ExitOnError)
 	wait := fs.Bool("wait", false, "resend SPA until the opened port accepts TCP connections")
 	noKnock := fs.Bool("no-knock", false, "only request the grant, do not send SPA")
-	service, rest := popArg(args)
-	_ = fs.Parse(rest)
-	if service == "" {
-		return errors.New("access: missing service name")
+	pos, err := cli.ParseInterspersed(fs, args)
+	if err != nil {
+		return err
 	}
+	if len(pos) != 1 {
+		return errors.New("access: expected one service name")
+	}
+	service := pos[0]
 	ctx, cancel := timeout()
 	defer cancel()
 	g, err := c.RequestAccess(ctx, service)
@@ -165,24 +168,17 @@ func access(c *client.Client, args []string, asJSON bool) error {
 	return nil
 }
 
-// popArg extracts the first positional argument so flags may follow it.
-func popArg(args []string) (string, []string) {
-	for i, a := range args {
-		if !strings.HasPrefix(a, "-") {
-			return a, append(append([]string{}, args[:i]...), args[i+1:]...)
-		}
-	}
-	return "", args
-}
-
 func connect(c *client.Client, args []string) error {
 	fs := flag.NewFlagSet("connect", flag.ExitOnError)
 	listen := fs.String("listen", "127.0.0.1:8080", "local address to listen on")
-	service, rest := popArg(args)
-	_ = fs.Parse(rest)
-	if service == "" {
-		return errors.New("connect: missing service name")
+	pos, err := cli.ParseInterspersed(fs, args)
+	if err != nil {
+		return err
 	}
+	if len(pos) != 1 {
+		return errors.New("connect: expected one service name")
+	}
+	service := pos[0]
 	log := cli.Logger("info")
 	s := &client.Session{Client: c, Service: service, Log: func(f string, a ...any) { log.Info(fmt.Sprintf(f, a...)) }}
 	ctx, cancel := cli.SignalContext()

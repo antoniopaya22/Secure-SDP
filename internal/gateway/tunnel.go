@@ -77,7 +77,33 @@ func (a *Agent) serveTunnel(ctx context.Context, tc *tls.Conn) {
 		return
 	}
 	defer up.Close()
+	if !a.trackTunnel(g.ID, tc) {
+		return // revoked meanwhile
+	}
+	defer a.untrackTunnel(g.ID, tc)
 	a.log.Info("tunnel opened", "client", id.String(), "service", service, "grant", g.ID, "remote", tc.RemoteAddr().String())
 	in, out := netutil.Pipe(tc, up)
 	a.log.Info("tunnel closed", "client", id.String(), "service", service, "bytes_in", in, "bytes_out", out)
+}
+
+func (a *Agent) trackTunnel(id string, c net.Conn) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.grants[id]; !ok {
+		return false
+	}
+	if a.tunnels[id] == nil {
+		a.tunnels[id] = map[net.Conn]struct{}{}
+	}
+	a.tunnels[id][c] = struct{}{}
+	return true
+}
+
+func (a *Agent) untrackTunnel(id string, c net.Conn) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.tunnels[id], c)
+	if len(a.tunnels[id]) == 0 {
+		delete(a.tunnels, id)
+	}
 }

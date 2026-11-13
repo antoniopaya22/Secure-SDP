@@ -151,11 +151,19 @@ type GatewayGrant struct {
 	HMACDigest    string    `json:"hmac_digest"`
 	AccessTimeout int       `json:"access_timeout"`
 	ExpiresAt     time.Time `json:"expires_at"`
+	// Replaces lists older grants of the same client and service that this
+	// grant supersedes; the AH drops them in the same fwknopd reload.
+	Replaces []string `json:"replaces,omitempty"`
 }
 
 // RevokeRequest withdraws grants on an accepting host.
 type RevokeRequest struct {
 	IDs []string `json:"ids"`
+	// Enforce also cuts what the grants already opened (live tunnels and
+	// firewall rules inside their access window). It is set for revocations
+	// (admin, policy change) and not for expiry or replacement by a newer
+	// grant of the same client.
+	Enforce bool `json:"enforce,omitempty"`
 }
 
 // HardeningProfile is the Aspida program the controller wants applied on an

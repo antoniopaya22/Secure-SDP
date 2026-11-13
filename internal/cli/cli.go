@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -66,4 +67,24 @@ func SplitList(s string) []string {
 		}
 	}
 	return out
+}
+
+// ParseInterspersed parses flags that may appear before, between or after
+// positional arguments, and returns the positional arguments.
+func ParseInterspersed(fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		rest := fs.Args()
+		if len(rest) == 0 {
+			return pos, nil
+		}
+		if rest[0] == "--" {
+			return append(pos, rest[1:]...), nil
+		}
+		pos = append(pos, rest[0])
+		args = rest[1:]
+	}
 }

@@ -38,6 +38,21 @@ func (s *grantStore) add(g *grantRecord) (superseded []string) {
 	return superseded
 }
 
+// previous returns the IDs of the grants a new grant of client for service
+// on gateway would supersede.
+func (s *grantStore) previous(client, service, gateway string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var ids []string
+	for id, g := range s.m {
+		if g.grant.Client == client && g.grant.Service == service && g.gateway == gateway {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
 func (s *grantStore) forGateway(gateway string, now time.Time) []api.GatewayGrant {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -305,6 +305,21 @@ func TestBridgeRelayAndTunnel(t *testing.T) {
 	if g2.SPA.KeyBase64 == g.SPA.KeyBase64 || g2.GrantID == g.GrantID {
 		t.Fatal("grant credentials reused")
 	}
+	// The new grant replaced the old one on the accepting host; the tunnel
+	// keeps working because it is bound to the client identity.
+	var grants []api.GrantInfo
+	admin := l.client("admin", l.root.APIAddr())
+	if err := admin.Do(ctx(t), http.MethodGet, api.PathAdminGrants, nil, &grants); err != nil {
+		t.Fatal(err)
+	}
+	for _, gi := range grants {
+		if gi.ID == g.GrantID {
+			t.Fatal("superseded grant still active")
+		}
+	}
+	if body, err := get(t, alice, g2); err != nil || body != "protected resource" {
+		t.Fatalf("tunnel GET with the new grant: %q, %v", body, err)
+	}
 
 	// Forward mode returns the gateway port of the service.
 	gn, err := alice.RequestAccess(ctx(t), "web-nat")

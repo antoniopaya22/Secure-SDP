@@ -106,3 +106,90 @@ func isFlushOfFWKNOPChain(args []string) bool {
 	}
 	return false
 }
+
+// Plan6 makes IPv6 default-drop. fwknop and SecureSDP authorize IPv4 only,
+// so nothing is opened over IPv6 (otherwise listeners bound to [::] such as
+// the tunnel would be reachable without SPA on dual-stack hosts).
+func Plan6() []Rule {
+	return []Rule{
+		{Args: []string{"-P", "INPUT", "DROP"}},
+		{Args: []string{"-P", "FORWARD", "DROP"}},
+		{Args: []string{"-F", "INPUT"}},
+		{Args: []string{"-F", "FORWARD"}},
+		{Args: []string{"-A", "INPUT", "-i", "lo", "-j", "ACCEPT"}},
+		{Args: []string{"-A", "INPUT", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT"}},
+	}
+}
+
+// Lister is a Runner that can also return command output (iptables -S).
+type Lister interface {
+	Runner
+	Output(args ...string) (string, error)
+}
+
+// Output implements Lister.
+func (e Exec) Output(args ...string) (string, error) {
+	bin := e.Binary
+	if bin == "" {
+		bin = "iptables"
+	}
+	out, err := exec.Command(bin, append([]string{"-w"}, args...)...).Output()
+	return string(out), err
+}
+
+// Access identifies firewall rules fwknopd opened for one client.
+type Access struct {
+	Source string // client address (from the SPA packet)
+	Ports  []int  // destination ports of the rules (gateway port, DNAT target port)
+}
+
+// fwknopChains are the chains where fwknopd adds per-client rules.
+var fwknopChains = []struct{ table, chain string }{
+	{"filter", "FWKNOP_INPUT"},
+	{"filter", "FWKNOP_FORWARD"},
+	{"nat", "FWKNOP_PREROUTING"},
+}
+
+// CloseAccess deletes the rules fwknopd added for a client before their
+// FW_ACCESS_TIMEOUT, so that a revoked grant stops working immediately.
+// It returns the number of rules removed.
+func CloseAccess(l Lister, a Access) (int, error) {
+	src := a.Source + "/32"
+	removed := 0
+	for _, c := range fwknopChains {
+		out, err := l.Output("-t", c.table, "-S", c.chain)
+		if err != nil {
+			continue // chain not created yet
+		}
+		for _, line := range strings.Split(out, "\n") {
+			f := strings.Fields(line)
+			if len(f) < 2 || f[0] != "-A" || !hasPair(f, "-s", src) || !matchesPort(f, a.Ports) {
+				continue
+			}
+			f[0] = "-D"
+			if err := l.Run(append([]string{"-t", c.table}, f...)...); err != nil {
+				return removed, err
+			}
+			removed++
+		}
+	}
+	return removed, nil
+}
+
+func hasPair(f []string, k, v string) bool {
+	for i := 0; i+1 < len(f); i++ {
+		if f[i] == k && f[i+1] == v {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesPort(f []string, ports []int) bool {
+	for _, p := range ports {
+		if hasPair(f, "--dport", fmt.Sprint(p)) {
+			return true
+		}
+	}
+	return false
+}

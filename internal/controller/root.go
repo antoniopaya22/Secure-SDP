@@ -188,6 +188,7 @@ func (r *Root) authorize(ctx context.Context, client identity.Identity, service 
 	} else {
 		gg.Port = g.TunnelPort
 	}
+	gg.Replaces = r.grants.previous(gg.Client, s.Name, g.ID)
 	ictx, cancel := context.WithTimeout(ctx, installTimeout)
 	err := rt.call(ictx, api.MethodGrantInstall, gg, nil)
 	cancel()
@@ -195,9 +196,12 @@ func (r *Root) authorize(ctx context.Context, client identity.Identity, service 
 		r.log.Warn("grant install failed", "gateway", g.ID, "err", err)
 		return nil, rpc.Errorf(rpc.CodeUnavailable, "accepting host %s did not install the grant: %v", g.ID, err)
 	}
+	replaced := gg.Replaces
+	gg.Replaces = nil
 	superseded := r.grants.add(&grantRecord{grant: gg, gateway: g.ID, issued: now, via: path})
-	if len(superseded) > 0 {
-		go r.revokeOnGateway(context.Background(), g.ID, superseded)
+	if extra := slices.DeleteFunc(superseded, func(id string) bool { return slices.Contains(replaced, id) }); len(extra) > 0 {
+		// a concurrent request of the same client raced with this one
+		go r.revokeOnGateway(context.Background(), g.ID, extra, false)
 	}
 	r.log.Info("authorization granted", "client", client.String(), "service", s.Name, "gateway", g.ID,
 		"mode", s.Mode, "grant", gg.ID, "expires", gg.ExpiresAt, "path", path)
@@ -426,14 +430,14 @@ func (r *Root) syncGateway(gateway string) (*api.SyncResult, error) {
 	return &res, nil
 }
 
-func (r *Root) revokeOnGateway(ctx context.Context, gateway string, ids []string) {
+func (r *Root) revokeOnGateway(ctx context.Context, gateway string, ids []string, enforce bool) {
 	rt := r.route(gateway)
 	if rt == nil || len(ids) == 0 {
 		return // the accepting host expires grants on its own
 	}
 	cctx, cancel := context.WithTimeout(ctx, installTimeout)
 	defer cancel()
-	if err := rt.call(cctx, api.MethodGrantRevoke, api.RevokeRequest{IDs: ids}, nil); err != nil {
+	if err := rt.call(cctx, api.MethodGrantRevoke, api.RevokeRequest{IDs: ids, Enforce: enforce}, nil); err != nil {
 		r.log.Warn("revoke failed", "gateway", gateway, "err", err)
 	}
 }
@@ -449,7 +453,7 @@ func (r *Root) janitor(ctx context.Context) {
 		case <-t.C:
 			for gw, ids := range r.grants.expire(time.Now()) {
 				r.log.Info("grants expired", "gateway", gw, "count", len(ids))
-				go r.revokeOnGateway(ctx, gw, ids)
+				go r.revokeOnGateway(ctx, gw, ids, false)
 			}
 		}
 	}
@@ -476,7 +480,7 @@ func (r *Root) Reload() error {
 	})
 	for gw, ids := range revoked {
 		r.log.Info("grants revoked by new policy", "gateway", gw, "count", len(ids))
-		r.revokeOnGateway(context.Background(), gw, ids)
+		r.revokeOnGateway(context.Background(), gw, ids, true)
 	}
 	r.mu.Lock()
 	ids := make([]string, 0, len(r.routes))
@@ -528,7 +532,7 @@ func (r *Root) adminRoutes(mux *http.ServeMux) {
 		n := 0
 		for gw, ids := range byGW {
 			n += len(ids)
-			r.revokeOnGateway(req.Context(), gw, ids)
+			r.revokeOnGateway(req.Context(), gw, ids, true)
 		}
 		r.log.Info("grants revoked by admin", "admin", peer(req).id.String(), "count", n)
 		writeJSON(w, http.StatusOK, api.RevokeResult{Revoked: n})
