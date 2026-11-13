@@ -11,11 +11,11 @@
     <div class="lp-wrap lp-hero__grid">
       <div class="lp-hero__copy">
         <p class="lp-tag">Implementation of <a href="https://doi.org/10.1007/s10207-024-00863-7">SecureSDP · IJIS 2024</a></p>
-        <h1 id="lp-title" class="lp-hero__title" data-reveal>SecureSDP</h1>
-        <p class="lp-hero__lead" data-reveal>
-          A Software-Defined Perimeter in Go that scales across organizations.
-          Each domain keeps its own controller, a root controller decides for all of them,
-          and accepting hosts stay dark until a client presents keys issued for that grant alone.
+        <h1 id="lp-title" class="lp-hero__title">Many domains. One decision.</h1>
+        <p class="lp-hero__lead">
+          SecureSDP is a Software-Defined Perimeter in Go. Each domain keeps its own controller,
+          a root controller decides for all of them, and services stay dark until a client
+          presents keys issued for that grant alone.
         </p>
         <div class="lp-actions" data-reveal>
           <a class="lp-btn lp-btn--primary" href="{{ 'getting-started/' | url }}">Get started</a>
@@ -178,7 +178,7 @@
     <div class="lp-wrap lp-split">
       <header class="lp-head" data-reveal>
         <p class="lp-eyebrow">Quick start</p>
-        <h2 id="lp-qs">A two-domain lab in two commands</h2>
+        <h2 id="lp-qs">Two domains, two commands</h2>
         <p>The Compose lab runs a root and a bridged controller, a gateway in front of nginx, an authorized and an unauthorized client. The PKI is generated at start-up; CI runs the same demo on every change.</p>
         <p><a href="{{ 'getting-started/' | url }}">Full getting-started guide →</a></p>
       </header>
