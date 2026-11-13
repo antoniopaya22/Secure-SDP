@@ -107,7 +107,7 @@ services:
   # ============== PROTECTED SERVICE ==============
   web:
     <<: *defaults
-    image: nginx:1.27-alpine
+    image: nginx:1.31-alpine
     # Payloads with the sizes used in the paper's scalability test (bench.sh).
     command:
       - sh
