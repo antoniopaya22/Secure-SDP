@@ -1,37 +1,302 @@
-{#- Landing page. Configure it from the page front matter:
-    hero: { eyebrow, title, lead, buttons: [{text, link}], meta: [text] }  -#}
+{#- Landing page for SecureSDP.
+    Shared assets: docs/stylesheets/extra.css, docs/javascripts/landing.js -#}
 {% extends "main.html" %}
 
 {% block tabs %}
-  {{ super() }}
-  {% set hero = page.meta.hero %}
-  <section class="sdp-hero" data-md-color-scheme="slate">
-    <div class="sdp-hero__inner md-grid">
-      <div class="sdp-hero__copy">
-        {% if hero.eyebrow %}<p class="sdp-hero__eyebrow">{{ hero.eyebrow }}</p>{% endif %}
-        <h1 class="sdp-hero__title">{{ hero.title }}</h1>
-        <p class="sdp-hero__lead">{{ hero.lead }}</p>
-        <div class="sdp-hero__actions md-typeset">
-          {% for button in hero.buttons %}
-            {% set href = button.link if button.link.startswith("http") else (button.link | url) %}
-            <a href="{{ href }}" class="md-button{% if loop.first %} md-button--primary{% endif %}">{{ button.text }}</a>
-          {% endfor %}
+{{ super() }}
+<div class="lp" data-landing>
+
+  <!-- ===================== Hero ===================== -->
+  <section class="lp-hero" id="overview" aria-labelledby="lp-title">
+    <div class="lp-wrap lp-hero__grid">
+      <div class="lp-hero__copy">
+        <p class="lp-tag">Implementation of <a href="https://doi.org/10.1007/s10207-024-00863-7">SecureSDP · IJIS 2024</a></p>
+        <h1 id="lp-title" class="lp-hero__title" data-reveal>SecureSDP</h1>
+        <p class="lp-hero__lead" data-reveal>
+          A Software-Defined Perimeter in Go that scales across organizations.
+          Each domain keeps its own controller, a root controller decides for all of them,
+          and accepting hosts stay dark until a client presents keys issued for that grant alone.
+        </p>
+        <div class="lp-actions" data-reveal>
+          <a class="lp-btn lp-btn--primary" href="{{ 'getting-started/' | url }}">Get started</a>
+          <a class="lp-btn" href="{{ 'architecture/' | url }}">Architecture</a>
+          <a class="lp-btn lp-btn--ghost" href="{{ config.repo_url }}">
+            {% include ".icons/fontawesome/brands/github.svg" %}<span>Source</span>
+          </a>
         </div>
-        {% if hero.meta %}
-          <ul class="sdp-hero__meta">
-            {% for item in hero.meta %}<li>{{ item }}</li>{% endfor %}
-          </ul>
-        {% endif %}
+        <dl class="lp-facts" data-reveal>
+          <div><dt>Language</dt><dd>Go</dd></div>
+          <div><dt>Controllers</dt><dd>Root + bridge</dd></div>
+          <div><dt>Channels</dt><dd>mTLS</dd></div>
+          <div><dt>License</dt><dd>GPL-3.0</dd></div>
+        </dl>
+        <p class="lp-provenance" data-reveal>
+          Written in 2026 following the architecture of the paper. Results quoted from the paper were not regenerated with this code.
+          <a href="{{ 'history/' | url }}">Provenance</a>
+        </p>
       </div>
-      <div class="sdp-hero__visual">
-        {% include "partials/spa-visual.html" %}
+
+      <!-- Interactive flow: Bridge model -->
+      <figure class="lp-flow" aria-labelledby="lp-flow-caption">
+        <div class="lp-flow__canvas">
+          <svg class="lp-diagram" data-flow="bridge" viewBox="0 0 640 370" role="img" aria-labelledby="lp-diagram-title">
+            <title id="lp-diagram-title">SecureSDP Bridge model access flow</title>
+
+            <!-- domains -->
+            <rect x="20" y="20" width="200" height="300" rx="12" class="lp-d-zone"/>
+            <text x="120" y="42" class="lp-d-zone-label" text-anchor="middle">domain-b</text>
+            <rect x="250" y="20" width="370" height="300" rx="12" class="lp-d-zone"/>
+            <text x="435" y="42" class="lp-d-zone-label" text-anchor="middle">domain-a</text>
+            <rect x="448" y="196" width="160" height="108" rx="10" class="lp-d-zone"/>
+            <text x="528" y="214" class="lp-d-zone-label" text-anchor="middle">private network</text>
+
+            <!-- links -->
+            <line id="lp-l-cl-br"   x1="120" y1="220" x2="120" y2="122" class="lp-d-link"/>
+            <line id="lp-l-br-root" x1="196" y1="90"  x2="280" y2="90"  class="lp-d-link"/>
+            <line id="lp-l-root-gw" x1="355" y1="122" x2="355" y2="220" class="lp-d-link"/>
+            <line id="lp-l-cl-gw"   x1="196" y1="250" x2="280" y2="250" class="lp-d-link"/>
+            <line id="lp-l-gw-svc"  x1="430" y1="250" x2="462" y2="250" class="lp-d-link"/>
+            <text x="128" y="174" class="lp-d-linklabel">mTLS</text>
+            <text x="238" y="80" class="lp-d-linklabel" text-anchor="middle">peer link</text>
+            <text x="363" y="174" class="lp-d-linklabel">grant · SPA keys</text>
+            <text x="238" y="240" class="lp-d-linklabel" text-anchor="middle">SPA</text>
+
+            <!-- moving parts (drawn under the nodes) -->
+            <circle id="lp-p-req"   r="6" cx="120" cy="218" class="lp-d-pkt lp-d-pkt--ctrl" opacity="0"/>
+            <circle id="lp-p-reply" r="6" cx="278" cy="90"  class="lp-d-pkt lp-d-pkt--ctrl" opacity="0"/>
+            <circle id="lp-p-grant" r="6" cx="355" cy="122" class="lp-d-pkt lp-d-pkt--ctrl" opacity="0"/>
+            <circle id="lp-p-spa"   r="7" cx="197" cy="250" class="lp-d-pkt lp-d-pkt--spa" opacity="0"/>
+            <circle id="lp-p-data"  r="6" cx="197" cy="250" class="lp-d-pkt lp-d-pkt--ok" opacity="0"/>
+            <g id="lp-p-drop" opacity="0"></g>
+
+            <!-- nodes -->
+            <g class="lp-d-node" id="lp-n-bridge">
+              <rect x="45" y="58" width="150" height="64" rx="10"/>
+              <text x="120" y="86" text-anchor="middle" class="lp-d-title">Bridge controller</text>
+              <text x="120" y="104" text-anchor="middle" class="lp-d-sub">ctrl-bridge</text>
+            </g>
+            <g class="lp-d-node" id="lp-n-client">
+              <rect x="45" y="218" width="150" height="64" rx="10"/>
+              <text x="120" y="246" text-anchor="middle" class="lp-d-title">Client</text>
+              <text x="120" y="264" text-anchor="middle" class="lp-d-sub">sdp-client · alice</text>
+            </g>
+            <g class="lp-d-node" id="lp-n-root">
+              <rect x="280" y="58" width="150" height="64" rx="10"/>
+              <text x="355" y="86" text-anchor="middle" class="lp-d-title">Root controller</text>
+              <text x="355" y="104" text-anchor="middle" class="lp-d-sub">policy · CA</text>
+            </g>
+            <g class="lp-d-node" id="lp-n-gw">
+              <rect x="280" y="218" width="150" height="64" rx="10"/>
+              <text x="355" y="246" text-anchor="middle" class="lp-d-title">Gateway</text>
+              <text x="355" y="264" text-anchor="middle" class="lp-d-sub">sdp-services · gw-a</text>
+            </g>
+            <g class="lp-d-node lp-d-node--svc" id="lp-n-svc">
+              <rect x="462" y="222" width="136" height="56" rx="10"/>
+              <text x="530" y="246" text-anchor="middle" class="lp-d-title">Service</text>
+              <text x="530" y="263" text-anchor="middle" class="lp-d-sub">nginx · hidden</text>
+            </g>
+
+            <!-- gateway state badge -->
+            <g id="lp-badge" transform="translate(420 210)">
+              <circle r="13" class="lp-d-badge"/>
+              <g id="lp-badge-closed"><rect x="-5" y="-2" width="10" height="8" rx="1.5" class="lp-d-badge-icon"/><path d="M-3 -2v-3a3 3 0 0 1 6 0v3" class="lp-d-badge-stroke"/></g>
+              <g id="lp-badge-open" opacity="0"><rect x="-5" y="-2" width="10" height="8" rx="1.5" class="lp-d-badge-icon"/><path d="M-3 -2v-3a3 3 0 0 1 6 0" class="lp-d-badge-stroke"/></g>
+            </g>
+
+            <text id="lp-status" x="24" y="350" class="lp-d-status">gw-a: INPUT DROP · no stanza for alice</text>
+          </svg>
+        </div>
+
+        <figcaption id="lp-flow-caption" class="lp-flow__panel">
+          <div class="lp-flow__controls">
+            <span class="lp-flow__label">How access works</span>
+            <button type="button" class="lp-icon-btn" data-flow="toggle" aria-label="Pause animation">
+              <span class="lp-i-pause" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="lp-icon-btn" data-flow="restart" aria-label="Restart animation">
+              <span class="lp-i-restart" aria-hidden="true"></span>
+            </button>
+          </div>
+          <ol class="lp-steps" role="list">
+            <li><button type="button" data-step="0" aria-current="step" data-status="alice → ctrl-bridge · mTLS · sdp://domain-b/client/alice"><span class="lp-steps__n">1</span><span class="lp-steps__t">Authenticate locally</span><span class="lp-steps__d">The client opens mutual TLS to the controller of its own domain, whose CA can only vouch for that domain.</span></button></li>
+            <li><button type="button" data-step="1" data-status="ctrl-bridge → ctrl-root · relay access(web) + client chain"><span class="lp-steps__n">2</span><span class="lp-steps__t">Relay to the root</span><span class="lp-steps__d">The bridge forwards the request and the client's certificate chain; the root verifies the chain again.</span></button></li>
+            <li><button type="button" data-step="2" data-status="ctrl-root: allow · fresh SPA keys · stanza → gw-a"><span class="lp-steps__n">3</span><span class="lp-steps__t">Decide and issue</span><span class="lp-steps__d">The root applies the policy, issues SPA keys for this grant and installs a dedicated stanza on the gateway.</span></button></li>
+            <li><button type="button" data-step="3" data-status="SPA udp/62201 → gw-a · keys valid for this grant only"><span class="lp-steps__n">4</span><span class="lp-steps__t">One packet</span><span class="lp-steps__d">The client sends its SPA packet; the gateway opens access for that address until the grant expires.</span></button></li>
+            <li><button type="button" data-step="4" data-status="HTTP 200 · revoking the grant closes the path"><span class="lp-steps__n">5</span><span class="lp-steps__t">Connected</span><span class="lp-steps__d">Traffic reaches the service through the gateway, directly or over an mTLS tunnel. Revocation closes it at once.</span></button></li>
+          </ol>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ===================== Modules ===================== -->
+  <section class="lp-section" id="modules" aria-labelledby="lp-modules">
+    <div class="lp-wrap">
+      <header class="lp-head" data-reveal>
+        <p class="lp-eyebrow">Architecture</p>
+        <h2 id="lp-modules">Three modules, as in the paper</h2>
+        <p>One Go module and three binaries, named after the paper. Identities are X.509 certificates; every channel uses mutual TLS.</p>
+      </header>
+      <div class="lp-cards">
+        <article class="lp-card" data-reveal>
+          <span class="lp-card__icon">{% include ".icons/material/laptop.svg" %}</span>
+          <h3>Initiating host</h3>
+          <p>Authenticates to the controller of its domain, requests a service, sends the SPA packet and connects, directly or through an mTLS tunnel.</p>
+          <code>sdp-client</code>
+        </article>
+        <article class="lp-card" data-reveal>
+          <span class="lp-card__icon">{% include ".icons/material/source-branch.svg" %}</span>
+          <h3>Controller</h3>
+          <p><strong>root</strong> is the policy decision point, SPA key issuer and Egida master. <strong>bridge</strong> fronts a domain and relays to the root.</p>
+          <code>sdp-controller</code>
+        </article>
+        <article class="lp-card" data-reveal>
+          <span class="lp-card__icon">{% include ".icons/material/wall-fire.svg" %}</span>
+          <h3>Accepting host</h3>
+          <p>Policy enforcement point: default-deny iptables, fwknopd with one stanza per grant, mTLS tunnel, hardening and audit agent.</p>
+          <code>sdp-services</code>
+        </article>
+        <article class="lp-card" data-reveal>
+          <span class="lp-card__icon">{% include ".icons/material/certificate-outline.svg" %}</span>
+          <h3>Bridge-CA PKI</h3>
+          <p>A root CA and one name-constrained CA per domain, so a bridged domain can only vouch for its own members.</p>
+          <code>sdp-controller pki</code>
+        </article>
+        <article class="lp-card" data-reveal>
+          <span class="lp-card__icon">{% include ".icons/material/shield-check-outline.svg" %}</span>
+          <h3>Dynamic hardening</h3>
+          <p>The root derives an Egida (Aspida) program per accepting host from the services it exposes, and collects Lynis audits.</p>
+          <code>hardening · audit</code>
+        </article>
+      </div>
+      <p class="lp-more" data-reveal><a href="{{ 'components/' | url }}">Components and configuration reference →</a></p>
+    </div>
+  </section>
+
+  <!-- ===================== Quick start ===================== -->
+  <section class="lp-section lp-section--soft" id="quick-start" aria-labelledby="lp-qs">
+    <div class="lp-wrap lp-split">
+      <header class="lp-head" data-reveal>
+        <p class="lp-eyebrow">Quick start</p>
+        <h2 id="lp-qs">A two-domain lab in two commands</h2>
+        <p>The Compose lab runs a root and a bridged controller, a gateway in front of nginx, an authorized and an unauthorized client. The PKI is generated at start-up; CI runs the same demo on every change.</p>
+        <p><a href="{{ 'getting-started/' | url }}">Full getting-started guide →</a></p>
+      </header>
+      <div class="lp-commands" data-reveal>
+        <div class="lp-cmd">
+          <span class="lp-cmd__n">1</span>
+          <div class="lp-cmd__body"><span class="lp-cmd__label">Build and start the lab</span><code>docker compose up -d --build --wait</code></div>
+          <button type="button" class="lp-copy" data-copy="docker compose up -d --build --wait" aria-label="Copy command">Copy</button>
+        </div>
+        <div class="lp-cmd">
+          <span class="lp-cmd__n">2</span>
+          <div class="lp-cmd__body"><span class="lp-cmd__label">Run the end-to-end checks</span><code>./scripts/demo.sh</code></div>
+          <button type="button" class="lp-copy" data-copy="./scripts/demo.sh" aria-label="Copy command">Copy</button>
+        </div>
+        <div class="lp-cmd">
+          <span class="lp-cmd__n">3</span>
+          <div class="lp-cmd__body"><span class="lp-cmd__label">Or test the Go code (Go 1.24+)</span><code>go test -race ./...</code></div>
+          <button type="button" class="lp-copy" data-copy="go test -race ./..." aria-label="Copy command">Copy</button>
+        </div>
+        <pre class="lp-output" aria-label="Expected output"><span class="ok">PASS</span> alice: service does not answer before SPA
+<span class="ok">PASS</span> authorized by the root controller through the bridge
+<span class="ok">PASS</span> alice: HTTP 200 through the gateway
+<span class="ok">PASS</span> bob: still dark while alice's window is open
+<span class="ok">PASS</span> alice: tunnel refused after revocation
+All checks passed.</pre>
       </div>
     </div>
   </section>
+
+  <!-- ===================== Results ===================== -->
+  <section class="lp-section" id="results" aria-labelledby="lp-results">
+    <div class="lp-wrap lp-split">
+      <header class="lp-head" data-reveal>
+        <p class="lp-eyebrow">Results reported in the paper</p>
+        <h2 id="lp-results">Hardening each component</h2>
+        <p>The paper evaluated the Bridge model against Mesh and Hybrid topologies (lower response times at lower cost) and audited the SDP controller before and after applying Egida controls.</p>
+        <p class="lp-note">Scores as reported in Payá et al., IJIS 2024, Table 2. Not regenerated with this code. <a href="{{ 'evaluation/' | url }}">Evaluation →</a></p>
+      </header>
+      <div class="lp-bars" data-reveal>
+        <div class="lp-bars__legend"><span class="is-before">Default</span><span class="is-after">With Egida controls</span></div>
+        {% for name, before, after in [("Lynis", 52.00, 86.00), ("Chef InSpec", 36.17, 64.25), ("OpenSCAP", 63.52, 82.94)] %}
+        <div class="lp-bar">
+          <div class="lp-bar__name">{{ name }}<span>+{{ ((after / before - 1) * 100) | round | int }}%</span></div>
+          <div class="lp-bar__track" aria-hidden="true"><div class="lp-bar__fill is-before" style="--v: {{ before }}%"></div></div>
+          <div class="lp-bar__track" aria-hidden="true"><div class="lp-bar__fill is-after" style="--v: {{ after }}%"></div></div>
+          <div class="lp-bar__values">{{ "%.1f" | format(before) }}% → <strong>{{ "%.1f" | format(after) }}%</strong></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Research ===================== -->
+  <section class="lp-section lp-section--soft" id="research" aria-labelledby="lp-research">
+    <div class="lp-wrap">
+      <header class="lp-head" data-reveal>
+        <p class="lp-eyebrow">Research</p>
+        <h2 id="lp-research">Cite this work</h2>
+      </header>
+      <div class="lp-paper" data-reveal>
+        <div class="lp-paper__meta">
+          <p class="lp-paper__venue">International Journal of Information Security · 23(4), 2793–2808 · 2024</p>
+          <h3>SecureSDP: a novel software-defined perimeter implementation for enhanced network security and scalability</h3>
+          <p class="lp-paper__authors">Antonio Payá, Vicente García-Díaz, Alberto Gómez</p>
+          <div class="lp-actions">
+            <a class="lp-btn lp-btn--primary" href="https://doi.org/10.1007/s10207-024-00863-7">Read the paper</a>
+            <button type="button" class="lp-btn" data-copy-target="lp-bibtex">Copy BibTeX</button>
+            <a class="lp-btn lp-btn--ghost" href="{{ 'research/' | url }}">More</a>
+          </div>
+        </div>
+<pre class="lp-bibtex" id="lp-bibtex">@article{paya2024securesdp,
+  title   = {SecureSDP: a novel software-defined perimeter implementation
+             for enhanced network security and scalability},
+  author  = {Pay{\'a}, Antonio and Garc{\'i}a-D{\'i}az, Vicente and G{\'o}mez, Alberto},
+  journal = {International Journal of Information Security},
+  volume  = {23}, number = {4}, pages = {2793--2808}, year = {2024},
+  doi     = {10.1007/s10207-024-00863-7}
+}</pre>
+      </div>
+
+      <div class="lp-related">
+        <a class="lp-rel" href="https://antoniopaya22.github.io/Software-Defined-Perimeter/" data-reveal>
+          <span class="lp-rel__k">fwknop lab</span><strong>Software-Defined-Perimeter</strong><span>Waverley Labs SDP lab, companion of the same paper.</span>
+        </a>
+        <a class="lp-rel" href="https://antoniopaya22.github.io/iam-ids-sdp/" data-reveal>
+          <span class="lp-rel__k">IJIS 2025</span><strong>iam-ids-sdp</strong><span>Keycloak IAM and Apollon-based intrusion detection.</span>
+        </a>
+        <a class="lp-rel" href="https://github.com/Egida-Kassandra/egida" data-reveal>
+          <span class="lp-rel__k">Computers &amp; Security 2022</span><strong>Egida</strong><span>Automated security configuration deployment.</span>
+        </a>
+        <a class="lp-rel" href="{{ 'research-line/' | url }}" data-reveal>
+          <span class="lp-rel__k">Overview</span><strong>Research line</strong><span>How the publications and repositories fit together.</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== Docs index ===================== -->
+  <section class="lp-section" id="docs" aria-labelledby="lp-docs">
+    <div class="lp-wrap">
+      <header class="lp-head" data-reveal>
+        <p class="lp-eyebrow">Documentation</p>
+        <h2 id="lp-docs">Find what you need</h2>
+      </header>
+      <nav class="lp-docnav" aria-label="Documentation">
+        <a href="{{ 'getting-started/' | url }}" data-reveal><strong>Getting started</strong><span>Run the lab and the demo.</span></a>
+        <a href="{{ 'architecture/' | url }}" data-reveal><strong>Architecture</strong><span>Bridge model, PKI, access sequence.</span></a>
+        <a href="{{ 'components/' | url }}" data-reveal><strong>Components</strong><span>Controller, services, client, policy.</span></a>
+        <a href="{{ 'hardening/' | url }}" data-reveal><strong>Dynamic hardening</strong><span>Egida, Aspida and Lynis.</span></a>
+        <a href="{{ 'evaluation/' | url }}" data-reveal><strong>Evaluation</strong><span>Paper results and local benchmarks.</span></a>
+        <a href="{{ 'history/' | url }}" data-reveal><strong>History and provenance</strong><span>What was in the repository before.</span></a>
+      </nav>
+    </div>
+  </section>
+</div>
 {% endblock %}
 
 {% block content %}
-  <div class="sdp-home md-typeset">
-    {{ page.content }}
-  </div>
+  {#- Kept for search indexing; hidden on the landing page. -#}
+  <div class="lp-search-only">{{ page.content }}</div>
 {% endblock %}
