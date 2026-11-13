@@ -52,7 +52,7 @@ Related works:
 
 @article{paya2022egida,
   title   = {Automated security configuration deployment systems with early error detection},
-  author  = {Pay{\'a}, Antonio and Cotarelo, Alberto and Redondo, Jos{\'e} Manuel},
+  author  = {Pay{\'a}, Antonio and Cotarelo, Alba and Redondo, Jos{\'e} Manuel},
   journal = {Computers \& Security},
   volume  = {116},
   pages   = {102638},
