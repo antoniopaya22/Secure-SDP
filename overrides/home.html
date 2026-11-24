@@ -60,7 +60,7 @@
         <ul class="lp-facts">
           <li><b>Published</b> in the International Journal of Information Security, 2024</li>
           <li><b>Three Go binaries</b> named as in the paper: sdp-controller, sdp-services, sdp-client</li>
-          <li><b>Provenance</b> written in 2026 following the paper; its results were not regenerated with this code. <a href="{{ 'history/' | url }}">Details</a></li>
+          <li><b>Provenance</b> developed alongside the paper, published in 2026; its results were not regenerated with the published version. <a href="{{ 'history/' | url }}">Details</a></li>
         </ul>
       </div>
 
@@ -284,10 +284,10 @@
       <h2 class="lp-h2">Questions<i>.</i></h2>
       <div class="lp-faq__list">
         <details open><summary>Is this the code used in the paper's evaluation?</summary>
-          <p>No. When the paper was published the repository held only a skeleton and an OpenSPA test
-          bed. This implementation was written in 2026 following the architecture the paper describes;
-          the paper's numbers were not regenerated with it. See <a href="{{ 'history/' | url }}">history
-          and provenance</a>.</p></details>
+          <p>It comes from it. The implementation was developed in a private working copy while the
+          paper was written and published here in 2026; since then it has been updated with bug fixes
+          and simplifications. The paper's numbers were not regenerated with the published version. See
+          <a href="{{ 'history/' | url }}">history and provenance</a>.</p></details>
         <details><summary>What does the Bridge model add?</summary>
           <p>Existing SDPs keep their own controller and members. A root controller decides for all of
           them through bridged controllers, so perimeters can be joined without rebuilding them.</p></details>

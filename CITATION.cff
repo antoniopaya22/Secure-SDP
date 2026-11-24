@@ -5,7 +5,8 @@ abstract: >-
   Go implementation of SecureSDP, a Software-Defined Perimeter organized after
   the Bridge model (root and bridged controllers, mutual TLS, fwknop Single
   Packet Authorization) with dynamic hardening of accepting hosts through
-  Egida. Written in 2026 following the architecture described in the article.
+  Egida. Implementation of the architecture described in the article,
+  published in 2026.
 type: software
 license: GPL-3.0-only
 repository-code: "https://github.com/antoniopaya22/Secure-SDP"
