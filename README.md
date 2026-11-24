@@ -10,7 +10,7 @@
 📖 **Documentation: <https://antoniopaya22.github.io/Secure-SDP/>**
 
 > [!NOTE]
-> **Provenance.** This repository originally held only a skeleton and an OpenSPA test bed. The implementation was **written in 2026** following the architecture described in the paper. Results quoted from the paper were obtained by the authors as reported there and **have not been regenerated with this code**. See [History and provenance](https://antoniopaya22.github.io/Secure-SDP/history/).
+> **Provenance.** The implementation was developed in a private working copy alongside the paper and **published in 2026**; until then this repository held only a skeleton and an OpenSPA test bed. It has been updated since, mainly with bug fixes and simplifications. Results quoted from the paper were obtained by the authors as reported there and **have not been regenerated with the published version**. See [History and provenance](https://antoniopaya22.github.io/Secure-SDP/history/).
 
 | Module | Binary | Role |
 |---|---|---|

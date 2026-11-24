@@ -13,6 +13,6 @@ SecureSDP is a Software-Defined Perimeter written in Go that follows the archite
 
 Controllers follow the Bridge model: a root controller decides for every domain, and each domain keeps a bridged controller that authenticates its members over mutual TLS and relays their requests. Accepting hosts (sdp-services) stay dark behind default-deny iptables until a client (sdp-client) sends a Single Packet Authorization packet with fwknop keys issued for that grant alone. The root controller (sdp-controller) also drives dynamic hardening of each accepting host with Egida and collects Lynis audits.
 
-Provenance: the implementation was written in 2026 following the architecture described in the paper; results quoted from the paper were not regenerated with this code.
+Provenance: the implementation was developed privately alongside the paper and published in 2026, updated since with bug fixes and simplifications; results quoted from the paper were not regenerated with the published version.
 
 Quick start: `docker compose up -d --build --wait`, then `./scripts/demo.sh`.

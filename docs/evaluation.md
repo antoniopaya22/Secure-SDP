@@ -3,7 +3,7 @@
 The paper evaluates SecureSDP in two scenarios: the scalability of the Bridge architecture and the hardening level of individual components. This page summarizes what the paper **reports** and explains how to take comparable measurements with this implementation. It does not claim that this code reproduces the paper's numbers.
 
 !!! warning "Provenance of the numbers"
-    The results in the two "Reported in the paper" sections were obtained by the authors with the setup described in the paper. They have **not** been regenerated with this implementation, which was written in 2026 (see [History and provenance](history.md)).
+    The results in the two "Reported in the paper" sections were obtained by the authors with the setup described in the paper. They have **not** been regenerated with the published version of the implementation (see [History and provenance](history.md)).
 
 ## Architecture scalability
 
